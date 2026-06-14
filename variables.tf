@@ -83,10 +83,12 @@ variable "folders" {
   }
 
   # A per-folder deletion_policy override, when set, must be a valid value.
+  # A conditional (not ||) guarantees contains() never receives null, which
+  # errors on Terraform versions that don't short-circuit || during validation.
   validation {
     condition = alltrue([
       for cfg in values(var.folders) :
-      cfg.deletion_policy == null || contains(["DELETE", "PREVENT", "ABANDON"], cfg.deletion_policy)
+      cfg.deletion_policy == null ? true : contains(["DELETE", "PREVENT", "ABANDON"], cfg.deletion_policy)
     ])
     error_message = "Per-folder deletion_policy override must be one of \"DELETE\", \"PREVENT\" or \"ABANDON\"."
   }
