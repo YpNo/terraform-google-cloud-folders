@@ -37,8 +37,8 @@ only ever supply data.
 
 ```hcl
 module "folders" {
-  source  = "YpNo/cloud-folders/google"
-  version = "0.1.0"
+  source  = "github.com/YpNo/terraform-google-cloud-folders"
+  version = "0.1.1"
 
   org_domain = "example.com"
 
@@ -62,7 +62,7 @@ module "folders" {
 
 ```hcl
 terraform {
-  source = "github.com/YpNo/terraform-google-cloud-folders.git?ref=v0.1.0"
+  source = "github.com/YpNo/terraform-google-cloud-folders.git?ref=v0.1.1"
 }
 
 inputs = {
@@ -94,7 +94,11 @@ or a `deletion_policy` is invalid.
 ## Importing existing folders
 
 Import pre-existing folders by their (stable) IDs into the `depthN` resource that
-matches each folder's level (`depth1` = root, `depth2` = one level down, …):
+matches each folder's level (`depth1` = root, `depth2` = one level down, …). Note
+the address differs: when you call this as a module the resources are nested
+under it, whereas Terragrunt runs the module *as the root* so they are top-level.
+
+**With Terraform** — add `import` blocks alongside the `module` call:
 
 ```hcl
 import {
@@ -103,8 +107,24 @@ import {
 }
 ```
 
-`terraform plan` and confirm **no destroys** before applying. Full example:
-[`examples/with-import`](examples/with-import).
+**With Terragrunt** — generate the `import` blocks into the unit (addresses have
+no `module.` prefix):
+
+```hcl
+generate "imports" {
+  path      = "imports.tf"
+  if_exists = "overwrite"
+  contents  = <<-EOF
+    import {
+      id = "folders/111111111"
+      to = google_folder.depth1["Root1"]
+    }
+  EOF
+}
+```
+
+Then run `terraform plan` / `terragrunt plan` and confirm **no destroys** before
+applying. Full example: [`examples/with-import`](examples/with-import).
 
 ## Reference
 
@@ -172,5 +192,21 @@ parent derivation, override resolution and every validation path.
 
 ## License
 
-Apache 2.0 — see [LICENSE](LICENSE). Changes are tracked in
-[CHANGELOG.md](./CHANGELOG.md) (semantic versioning).
+This module is licensed under the **Apache License 2.0** — see the
+[LICENSE](LICENSE) and [NOTICE](NOTICE) files for details.
+
+```
+Copyright 2026 - YpNo
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+```
