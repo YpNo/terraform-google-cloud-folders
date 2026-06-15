@@ -96,38 +96,24 @@ or a `deletion_policy` is invalid.
 
 ## Importing existing folders
 
-Import pre-existing folders by their (stable) IDs into the `depthN` resource that
-matches each folder's level (`depth1` = root, `depth2` = one level down, …). Note
-the address differs: when you call this as a module the resources are nested
-under it, whereas Terragrunt runs the module *as the root* so they are top-level.
-
-**With Terraform** — add `import` blocks alongside the `module` call:
+To adopt folders that already exist in GCP, give each one its `id` and flip the
+single `import_mode` toggle — the module emits the matching `import` blocks for
+you (no per-resource addresses to hand-write, same for Terraform and Terragrunt):
 
 ```hcl
-import {
-  id = "folders/111111111"
-  to = module.folders.google_folder.depth1["Root1"]
+import_mode = true
+
+folders = {
+  "Root1"        = { id = "111111111" }
+  "Root1/Team A" = { id = "222222222" }
+  "Root1/New"    = {} # no id -> created normally
 }
 ```
 
-**With Terragrunt** — generate the `import` blocks into the unit (addresses have
-no `module.` prefix):
-
-```hcl
-generate "imports" {
-  path      = "imports.tf"
-  if_exists = "overwrite"
-  contents  = <<-EOF
-    import {
-      id = "folders/111111111"
-      to = google_folder.depth1["Root1"]
-    }
-  EOF
-}
-```
-
-Then run `terraform plan` / `terragrunt plan` and confirm **no destroys** before
-applying. Full example: [`examples/with-import`](examples/with-import).
+Run `plan`, confirm **no destroys**, then `apply`. Once imported, set
+`import_mode = false` again (the `id` fields are then ignored). Folders without
+an `id` are always created/managed as usual. Full example:
+[`examples/with-import`](examples/with-import).
 
 ## Reference
 
@@ -171,7 +157,8 @@ No modules.
 | ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_deletion_policy"></a> [deletion\_policy](#input\_deletion\_policy) | Default deletion policy for folders. One of DELETE, PREVENT or ABANDON. Can be overridden per folder via folders[*].deletion\_policy. | `string` | `"DELETE"` | no |
 | <a name="input_deletion_protection"></a> [deletion\_protection](#input\_deletion\_protection) | Default for whether Terraform is prevented from destroying/recreating folders. Can be overridden per folder via folders[*].deletion\_protection. | `bool` | `true` | no |
-| <a name="input_folders"></a> [folders](#input\_folders) | Folder hierarchy as a flat map keyed by full path, using "/" as the separator.<br/><br/>- The display name is the last path segment.<br/>- The parent is derived by trimming the last segment; a single-segment key<br/>  is created directly under the organization.<br/>- Every parent path MUST also exist as a key in the map.<br/><br/>Supports any nesting depth (up to GCP's 10-level folder limit) with no code<br/>changes. Example:<br/><br/>  {<br/>    "Root1"                = {}<br/>    "Root1/Team A"         = {}<br/>    "Root1/Team A/Backend" = { deletion\_protection = true }<br/>    "Root2"                = {}<br/>  }<br/><br/>deletion\_protection and deletion\_policy are optional per folder; when unset<br/>(null) they inherit the module-level var.deletion\_protection /<br/>var.deletion\_policy defaults. | <pre>map(object({<br/>    deletion_protection = optional(bool)<br/>    deletion_policy     = optional(string)<br/>    tags                = optional(map(string), {})<br/>  }))</pre> | `{}` | no |
+| <a name="input_folders"></a> [folders](#input\_folders) | Folder hierarchy as a flat map keyed by full path, using "/" as the separator.<br/><br/>- The display name is the last path segment.<br/>- The parent is derived by trimming the last segment; a single-segment key<br/>  is created directly under the organization.<br/>- Every parent path MUST also exist as a key in the map.<br/><br/>Supports any nesting depth (up to GCP's 10-level folder limit) with no code<br/>changes. Example:<br/><br/>  {<br/>    "Root1"                = {}<br/>    "Root1/Team A"         = {}<br/>    "Root1/Team A/Backend" = { deletion\_protection = true }<br/>    "Root2"                = {}<br/>  }<br/><br/>deletion\_protection and deletion\_policy are optional per folder; when unset<br/>(null) they inherit the module-level var.deletion\_protection /<br/>var.deletion\_policy defaults.<br/><br/>id is the existing GCP folder id (digits only) used only when import\_mode is<br/>true, to adopt an already-created folder into state. | <pre>map(object({<br/>    id                  = optional(string)<br/>    deletion_protection = optional(bool)<br/>    deletion_policy     = optional(string)<br/>    tags                = optional(map(string), {})<br/>  }))</pre> | `{}` | no |
+| <a name="input_import_mode"></a> [import\_mode](#input\_import\_mode) | When true, generate import blocks adopting existing GCP folders (those declaring an id) into state. Keep false for normal management; set true for a one-off import, then revert. | `bool` | `false` | no |
 | <a name="input_org_domain"></a> [org\_domain](#input\_org\_domain) | Organization domain (e.g. "example.com"), used to look up the organization ID when org\_id is not set. | `string` | `null` | no |
 | <a name="input_org_id"></a> [org\_id](#input\_org\_id) | Organization ID, digits only (e.g. "123456789"), without the "organizations/" prefix. Provide this OR org\_domain; org\_id takes precedence and skips the google\_organization lookup. | `string` | `null` | no |
 

@@ -263,3 +263,61 @@ run "invalid_org_id_rejected" {
 
   expect_failures = [var.org_id]
 }
+
+# import_mode off (default): folder ids are ignored, folders are created normally
+# (no import attempted, even though ids are present).
+run "import_mode_off_ignores_ids" {
+  command = plan
+
+  variables {
+    org_id  = "123456789"
+    folders = { "Root1" = { id = "111" } }
+  }
+
+  assert {
+    condition     = length(output.folder_ids) == 1
+    error_message = "Folders must still be managed when import_mode is off."
+  }
+}
+
+# import_mode on: folders that declare an id are adopted into the matching depth
+# resource. override_resource stands in for the real folders (mock providers
+# cannot service imports directly).
+run "import_mode_on_adopts_declared_ids" {
+  command = plan
+
+  override_resource {
+    target = google_folder.depth1
+    values = { name = "folders/111", folder_id = "111" }
+  }
+  override_resource {
+    target = google_folder.depth2
+    values = { name = "folders/222", folder_id = "222" }
+  }
+
+  variables {
+    org_id      = "123456789"
+    import_mode = true
+    folders = {
+      "Root1"        = { id = "111" }
+      "Root1/Team A" = { id = "222" }
+      "Root1/NoId"   = {} # no id -> managed, not imported
+    }
+  }
+
+  assert {
+    condition     = length(output.folder_ids) == 3
+    error_message = "All folders (imported or not) must remain in the plan."
+  }
+}
+
+# A malformed per-folder id must fail validation.
+run "invalid_folder_id_rejected" {
+  command = plan
+
+  variables {
+    folders = { "Root1" = { id = "folders/111" } }
+  }
+
+  expect_failures = [var.folders]
+}
