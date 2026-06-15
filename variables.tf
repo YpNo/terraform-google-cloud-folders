@@ -1,6 +1,18 @@
+variable "org_id" {
+  type        = string
+  default     = null
+  description = "Organization ID, digits only (e.g. \"123456789\"), without the \"organizations/\" prefix. Provide this OR org_domain; org_id takes precedence and skips the google_organization lookup."
+
+  validation {
+    condition     = var.org_id == null ? true : can(regex("^[0-9]+$", var.org_id))
+    error_message = "org_id must contain digits only (e.g. \"123456789\"), without the \"organizations/\" prefix."
+  }
+}
+
 variable "org_domain" {
   type        = string
-  description = "The Organization domain, used to resolve the organization ID via the google_organization data source."
+  default     = null
+  description = "Organization domain (e.g. \"example.com\"), used to look up the organization ID when org_id is not set."
 }
 
 variable "deletion_protection" {

@@ -1,9 +1,19 @@
+# Only look the organization up by domain when an explicit org_id wasn't given.
 data "google_organization" "this" {
+  count  = var.org_id == null ? 1 : 0
   domain = var.org_domain
+
+  lifecycle {
+    precondition {
+      condition     = var.org_domain != null
+      error_message = "Provide either var.org_id or var.org_domain (org_domain is required when org_id is unset)."
+    }
+  }
 }
 
 locals {
-  org_id = "organizations/${data.google_organization.this.org_id}"
+  # Prefer the explicit org_id; otherwise use the one resolved from the domain.
+  org_id = var.org_id != null ? "organizations/${var.org_id}" : "organizations/${one(data.google_organization.this).org_id}"
 
   # Normalize each "/"-separated key into display name, parent path and depth,
   # and resolve effective deletion settings (per-folder override, else global).
