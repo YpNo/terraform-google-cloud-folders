@@ -26,19 +26,12 @@ locals {
       deletion_protection = cfg.deletion_protection != null ? cfg.deletion_protection : var.deletion_protection
       deletion_policy     = cfg.deletion_policy != null ? cfg.deletion_policy : var.deletion_policy
       tags                = cfg.tags
-      id                  = cfg.id
     }
   }
 
   # Bucket folders by depth (1..10). A depth-N folder's parent is always a
   # depth-(N-1) folder, so each level only ever references the one above it.
   depths = { for d in range(1, 11) : d => { for k, v in local.folders : k => v if v.depth == d } }
-
-  # Per-depth { path => existing folder id } for folders that declare one.
-  # Consumed by the import blocks below, gated on var.import_mode.
-  import_ids = {
-    for d in range(1, 11) : d => { for k, v in local.depths[d] : k => v.id if v.id != null }
-  }
 }
 
 # Terraform cannot express recursion: a single resource referencing its own
@@ -144,70 +137,6 @@ resource "google_folder" "depth10" {
   deletion_policy     = each.value.deletion_policy
   tags                = each.value.tags
   parent              = google_folder.depth9[each.value.parent_key].name
-}
-
-# One import block per depth, mirroring the resources above. Each adopts the
-# existing folders that declare an id, but only while var.import_mode is true
-# (otherwise for_each is empty and nothing is imported).
-
-import {
-  for_each = var.import_mode ? try(local.depths[1], {}) : {}
-  id       = "folders/${google_folder.depth1[each.key].folder_id}"
-  to       = google_folder.depth10[each.key]
-}
-
-import {
-  for_each = var.import_mode ? try(local.depths[2], {}) : {}
-  id       = "folders/${google_folder.depth2[each.key].folder_id}"
-  to       = google_folder.depth10[each.key]
-}
-
-import {
-  for_each = var.import_mode ? try(local.depths[3], {}) : {}
-  id       = "folders/${google_folder.depth3[each.key].folder_id}"
-  to       = google_folder.depth10[each.key]
-}
-
-import {
-  for_each = var.import_mode ? try(local.depths[4], {}) : {}
-  id       = "folders/${google_folder.depth4[each.key].folder_id}"
-  to       = google_folder.depth10[each.key]
-}
-
-import {
-  for_each = var.import_mode ? try(local.depths[5], {}) : {}
-  id       = "folders/${google_folder.depth5[each.key].folder_id}"
-  to       = google_folder.depth10[each.key]
-}
-
-import {
-  for_each = var.import_mode ? try(local.depths[6], {}) : {}
-  id       = "folders/${google_folder.depth6[each.key].folder_id}"
-  to       = google_folder.depth10[each.key]
-}
-
-import {
-  for_each = var.import_mode ? try(local.depths[7], {}) : {}
-  id       = "folders/${google_folder.depth7[each.key].folder_id}"
-  to       = google_folder.depth10[each.key]
-}
-
-import {
-  for_each = var.import_mode ? try(local.depths[8], {}) : {}
-  id       = "folders/${google_folder.depth8[each.key].folder_id}"
-  to       = google_folder.depth10[each.key]
-}
-
-import {
-  for_each = var.import_mode ? try(local.depths[9], {}) : {}
-  id       = "folders/${google_folder.depth10[each.key].folder_id}"
-  to       = google_folder.depth9[each.key]
-}
-
-import {
-  for_each = var.import_mode ? try(local.depths[10], {}) : {}
-  id       = "folders/${google_folder.depth10[each.key].folder_id}"
-  to       = google_folder.depth10[each.key]
 }
 
 locals {

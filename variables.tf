@@ -15,12 +15,6 @@ variable "org_domain" {
   description = "Organization domain (e.g. \"example.com\"), used to look up the organization ID when org_id is not set."
 }
 
-variable "import_mode" {
-  type        = bool
-  default     = false
-  description = "When true, generate import blocks adopting existing GCP folders (those declaring an id) into state. Keep false for normal management; set true for a one-off import, then revert."
-}
-
 variable "deletion_protection" {
   type        = bool
   default     = true
