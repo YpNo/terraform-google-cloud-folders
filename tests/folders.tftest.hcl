@@ -197,3 +197,69 @@ run "invalid_deletion_policy_rejected" {
 
   expect_failures = [var.folders]
 }
+
+# An explicit org_id is used verbatim and skips the google_organization lookup.
+run "org_id_takes_precedence_and_skips_lookup" {
+  command = plan
+
+  variables {
+    org_id     = "999888777"
+    org_domain = null
+    folders    = { "Root1" = {} }
+  }
+
+  assert {
+    condition     = length(data.google_organization.this) == 0
+    error_message = "The org lookup must be skipped when org_id is provided."
+  }
+
+  assert {
+    condition     = google_folder.depth1["Root1"].parent == "organizations/999888777"
+    error_message = "Root folders must be parented to the supplied org_id."
+  }
+}
+
+# Without org_id, the domain lookup is used (mock returns 123456789).
+run "org_domain_lookup_used_when_no_org_id" {
+  command = plan
+
+  variables {
+    org_domain = "example.com"
+    folders    = { "Root1" = {} }
+  }
+
+  assert {
+    condition     = length(data.google_organization.this) == 1
+    error_message = "The org lookup must run when org_id is not provided."
+  }
+
+  assert {
+    condition     = google_folder.depth1["Root1"].parent == "organizations/123456789"
+    error_message = "Root folders must be parented to the org id resolved from the domain."
+  }
+}
+
+# Neither org_id nor org_domain set must fail with a clear message.
+run "missing_org_inputs_rejected" {
+  command = plan
+
+  variables {
+    org_id     = null
+    org_domain = null
+    folders    = { "Root1" = {} }
+  }
+
+  expect_failures = [data.google_organization.this]
+}
+
+# A malformed org_id (non-digits / with prefix) must fail validation.
+run "invalid_org_id_rejected" {
+  command = plan
+
+  variables {
+    org_id  = "organizations/123"
+    folders = { "Root1" = {} }
+  }
+
+  expect_failures = [var.org_id]
+}
