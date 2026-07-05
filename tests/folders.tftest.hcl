@@ -10,6 +10,13 @@ mock_provider "google" {
       org_id = "123456789"
     }
   }
+  # A valid "folders/<id>" name so the IAM submodule's folder validation passes.
+  mock_resource "google_folder" {
+    defaults = {
+      name      = "folders/123456789"
+      folder_id = "123456789"
+    }
+  }
 }
 
 variables {
@@ -262,4 +269,58 @@ run "invalid_org_id_rejected" {
   }
 
   expect_failures = [var.org_id]
+}
+
+# The IAM submodule is instantiated only for folders declared in folder_iam.
+run "folder_iam_calls_submodule_for_configured_paths" {
+  command = plan
+
+  variables {
+    org_id  = "123456789"
+    folders = { "Root1" = {}, "Root1/Team A" = {} }
+    folder_iam = {
+      "Root1" = {
+        members  = { "roles/viewer" = ["group:readers@example.com"] }
+        bindings = { "roles/resourcemanager.folderAdmin" = ["group:admins@example.com"] }
+      }
+    }
+  }
+
+  assert {
+    condition     = length(output.folder_iam) == 1
+    error_message = "IAM submodule must run once per folder_iam entry."
+  }
+
+  assert {
+    condition     = output.folder_iam["Root1"].folder == "folders/123456789"
+    error_message = "IAM must target the resolved folder name for that path."
+  }
+}
+
+# No folder_iam (default) instantiates no IAM submodule.
+run "folder_iam_absent_instantiates_nothing" {
+  command = plan
+
+  variables {
+    org_id  = "123456789"
+    folders = { "Root1" = {} }
+  }
+
+  assert {
+    condition     = length(output.folder_iam) == 0
+    error_message = "No IAM submodule should run when folder_iam is empty."
+  }
+}
+
+# A folder_iam key that matches no folder path must fail with a clear error.
+run "folder_iam_unknown_path_rejected" {
+  command = plan
+
+  variables {
+    org_id     = "123456789"
+    folders    = { "Root1" = {} }
+    folder_iam = { "Nope" = { members = { "roles/viewer" = ["user:a@example.com"] } } }
+  }
+
+  expect_failures = [terraform_data.folder_iam_keys]
 }

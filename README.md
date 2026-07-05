@@ -4,7 +4,7 @@
 [![Latest Release](https://img.shields.io/github/v/release/YpNo/terraform-google-cloud-folders?sort=semver&logo=github)](https://github.com/YpNo/terraform-google-cloud-folders/releases)
 [![Terraform Registry](https://img.shields.io/badge/terraform-registry-7B42BC?logo=terraform&logoColor=white)](https://registry.terraform.io/modules/YpNo/cloud-folders/google/latest)
 [![Terraform](https://img.shields.io/badge/terraform-%3E%3D_1.7.0-7B42BC?logo=terraform&logoColor=white)](https://developer.hashicorp.com/terraform/install)
-[![Provider](https://img.shields.io/badge/google-%3E%3D_5.0-4285F4?logo=googlecloud&logoColor=white)](https://registry.terraform.io/providers/hashicorp/google/latest)
+[![Provider](https://img.shields.io/badge/google-%3E%3D_6.15-4285F4?logo=googlecloud&logoColor=white)](https://registry.terraform.io/providers/hashicorp/google/latest)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-FAB040?logo=pre-commit&logoColor=white)](https://pre-commit.com/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
@@ -94,6 +94,25 @@ Each `folders` value takes optional fields. `deletion_protection` and
 name is empty / >30 chars / has illegal characters, nesting exceeds 10 levels,
 or a `deletion_policy` is invalid.
 
+## Folder IAM
+
+Manage folder IAM by populating `folder_iam`, keyed by the same paths as
+`folders`. Each entry is delegated to the autonomous [`modules/iam`](modules/iam)
+submodule (members, authoritative bindings, conditional bindings, audit configs,
+or a full authoritative policy). Folders you don't list get no IAM.
+
+```hcl
+folder_iam = {
+  "Root1" = {
+    members  = { "roles/viewer" = ["group:readers@example.com"] }
+    bindings = { "roles/resourcemanager.folderAdmin" = ["group:admins@example.com"] }
+  }
+}
+```
+
+See the [submodule README](modules/iam) for every supported field. The submodule
+is standalone, so you can also call it directly against an existing folder id.
+
 ## Importing existing folders
 
 Adopt pre-existing folders by writing `import` blocks that map their (stable) IDs
@@ -138,17 +157,20 @@ Full example: [`examples/with-import`](examples/with-import).
 | Name | Version |
 | ---- | ------- |
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.7.0 |
-| <a name="requirement_google"></a> [google](#requirement\_google) | >= 5.0.0 |
+| <a name="requirement_google"></a> [google](#requirement\_google) | >= 6.15.0 |
 
 ## Providers
 
 | Name | Version |
 | ---- | ------- |
-| <a name="provider_google"></a> [google](#provider\_google) | >= 5.0.0 |
+| <a name="provider_google"></a> [google](#provider\_google) | >= 6.15.0 |
+| <a name="provider_terraform"></a> [terraform](#provider\_terraform) | n/a |
 
 ## Modules
 
-No modules.
+| Name | Source | Version |
+| ---- | ------ | ------- |
+| <a name="module_folder_iam"></a> [folder\_iam](#module\_folder\_iam) | ./modules/iam | n/a |
 
 ## Resources
 
@@ -164,6 +186,7 @@ No modules.
 | [google_folder.depth7](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/folder) | resource |
 | [google_folder.depth8](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/folder) | resource |
 | [google_folder.depth9](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/folder) | resource |
+| [terraform_data.folder_iam_keys](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) | resource |
 | [google_organization.this](https://registry.terraform.io/providers/hashicorp/google/latest/docs/data-sources/organization) | data source |
 
 ## Inputs
@@ -172,6 +195,7 @@ No modules.
 | ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_deletion_policy"></a> [deletion\_policy](#input\_deletion\_policy) | Default deletion policy for folders. One of DELETE, PREVENT or ABANDON. Can be overridden per folder via folders[*].deletion\_policy. | `string` | `"DELETE"` | no |
 | <a name="input_deletion_protection"></a> [deletion\_protection](#input\_deletion\_protection) | Default for whether Terraform is prevented from destroying/recreating folders. Can be overridden per folder via folders[*].deletion\_protection. | `bool` | `true` | no |
+| <a name="input_folder_iam"></a> [folder\_iam](#input\_folder\_iam) | Optional IAM configuration per folder, keyed by the same folder path used in<br/>var.folders. Each entry is delegated to the ./modules/iam submodule; omit a<br/>path (or leave this empty) to manage no IAM for it. See modules/iam for the<br/>semantics of each field. Example:<br/><br/>  {<br/>    "Root1" = {<br/>      members  = { "roles/viewer" = ["group:readers@example.com"] }<br/>      bindings = { "roles/resourcemanager.folderAdmin" = ["group:admins@example.com"] }<br/>    }<br/>  } | <pre>map(object({<br/>    members  = optional(map(set(string)), {})<br/>    bindings = optional(map(set(string)), {})<br/>    conditional_bindings = optional(list(object({<br/>      role        = string<br/>      members     = set(string)<br/>      title       = string<br/>      description = optional(string)<br/>      expression  = string<br/>    })), [])<br/>    audit_configs = optional(map(object({<br/>      audit_log_configs = set(object({<br/>        log_type         = string<br/>        exempted_members = optional(set(string), [])<br/>      }))<br/>    })), {})<br/>    policy_bindings = optional(list(object({<br/>      role    = string<br/>      members = set(string)<br/>      condition = optional(object({<br/>        title       = string<br/>        description = optional(string)<br/>        expression  = string<br/>      }))<br/>    })), null)<br/>  }))</pre> | `{}` | no |
 | <a name="input_folders"></a> [folders](#input\_folders) | Folder hierarchy as a flat map keyed by full path, using "/" as the separator.<br/><br/>- The display name is the last path segment.<br/>- The parent is derived by trimming the last segment; a single-segment key<br/>  is created directly under the organization.<br/>- Every parent path MUST also exist as a key in the map.<br/><br/>Supports any nesting depth (up to GCP's 10-level folder limit) with no code<br/>changes. Example:<br/><br/>  {<br/>    "Root1"                = {}<br/>    "Root1/Team A"         = {}<br/>    "Root1/Team A/Backend" = { deletion\_protection = true }<br/>    "Root2"                = {}<br/>  }<br/><br/>deletion\_protection and deletion\_policy are optional per folder; when unset<br/>(null) they inherit the module-level var.deletion\_protection /<br/>var.deletion\_policy defaults. | <pre>map(object({<br/>    deletion_protection = optional(bool)<br/>    deletion_policy     = optional(string)<br/>    tags                = optional(map(string), {})<br/>  }))</pre> | `{}` | no |
 | <a name="input_org_domain"></a> [org\_domain](#input\_org\_domain) | Organization domain (e.g. "example.com"), used to look up the organization ID when org\_id is not set. | `string` | `null` | no |
 | <a name="input_org_id"></a> [org\_id](#input\_org\_id) | Organization ID, digits only (e.g. "123456789"), without the "organizations/" prefix. Provide this OR org\_domain; org\_id takes precedence and skips the google\_organization lookup. | `string` | `null` | no |
@@ -180,6 +204,7 @@ No modules.
 
 | Name | Description |
 | ---- | ----------- |
+| <a name="output_folder_iam"></a> [folder\_iam](#output\_folder\_iam) | IAM submodule outputs keyed by folder path, for folders that declare IAM. |
 | <a name="output_folder_ids"></a> [folder\_ids](#output\_folder\_ids) | Map of folder path => folder id (e.g. "123456789"). |
 | <a name="output_folder_names"></a> [folder\_names](#output\_folder\_names) | Map of folder path => resource name (e.g. "folders/123456789"). |
 | <a name="output_folder_parents"></a> [folder\_parents](#output\_folder\_parents) | Map of folder path => parent path ("organization" for root folders). Derived from the input keys. |
@@ -198,7 +223,7 @@ parent derivation, override resolution and every validation path.
 ## License
 
 This module is licensed under the **Apache License 2.0** — see the
-[LICENSE](LICENSE) and [NOTICE](NOTICE) files for details.
+[LICENSE](LICENSE) file for details.
 
 ```
 Copyright 2026 - YpNo

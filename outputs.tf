@@ -17,3 +17,8 @@ output "folders" {
   description = "Full google_folder objects keyed by path."
   value       = local.all_folders
 }
+
+output "folder_iam" {
+  description = "IAM submodule outputs keyed by folder path, for folders that declare IAM."
+  value       = { for path, iam in module.folder_iam : path => iam }
+}
