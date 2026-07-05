@@ -3,8 +3,9 @@ terraform {
   required_providers {
     google = {
       source = "hashicorp/google"
-      # google_folder.deletion_protection and deletion_policy require >= 5.0.
-      version = ">= 5.0.0"
+      # >= 6.15.0 for provider `universe_domain` support (Google Cloud Dedicated /
+      # sovereign universes); also covers google_folder deletion_protection/policy.
+      version = ">= 6.15.0"
     }
   }
 }

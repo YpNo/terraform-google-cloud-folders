@@ -154,3 +154,31 @@ locals {
     google_folder.depth10,
   )
 }
+
+# Fail clearly when a folder_iam key does not match a managed folder path,
+# rather than surfacing a raw index error from the module call below.
+resource "terraform_data" "folder_iam_keys" {
+  count = length(var.folder_iam) > 0 ? 1 : 0
+
+  lifecycle {
+    precondition {
+      condition     = length(setsubtract(keys(var.folder_iam), keys(local.all_folders))) == 0
+      error_message = "Every folder_iam key must match a folder path in var.folders. Unknown: ${join(", ", setsubtract(keys(var.folder_iam), keys(local.all_folders)))}."
+    }
+  }
+}
+
+# Delegate IAM to the autonomous submodule, once per folder that declares it.
+module "folder_iam" {
+  source   = "./modules/iam"
+  for_each = var.folder_iam
+
+  folder               = local.all_folders[each.key].name
+  members              = each.value.members
+  bindings             = each.value.bindings
+  conditional_bindings = each.value.conditional_bindings
+  audit_configs        = each.value.audit_configs
+  policy_bindings      = each.value.policy_bindings
+
+  depends_on = [terraform_data.folder_iam_keys]
+}

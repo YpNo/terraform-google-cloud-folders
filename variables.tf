@@ -105,3 +105,48 @@ variable "folders" {
     error_message = "Per-folder deletion_policy override must be one of \"DELETE\", \"PREVENT\" or \"ABANDON\"."
   }
 }
+
+variable "folder_iam" {
+  description = <<-EOT
+    Optional IAM configuration per folder, keyed by the same folder path used in
+    var.folders. Each entry is delegated to the ./modules/iam submodule; omit a
+    path (or leave this empty) to manage no IAM for it. See modules/iam for the
+    semantics of each field. Example:
+
+      {
+        "Root1" = {
+          members  = { "roles/viewer" = ["group:readers@example.com"] }
+          bindings = { "roles/resourcemanager.folderAdmin" = ["group:admins@example.com"] }
+        }
+      }
+  EOT
+
+  type = map(object({
+    members  = optional(map(set(string)), {})
+    bindings = optional(map(set(string)), {})
+    conditional_bindings = optional(list(object({
+      role        = string
+      members     = set(string)
+      title       = string
+      description = optional(string)
+      expression  = string
+    })), [])
+    audit_configs = optional(map(object({
+      audit_log_configs = set(object({
+        log_type         = string
+        exempted_members = optional(set(string), [])
+      }))
+    })), {})
+    policy_bindings = optional(list(object({
+      role    = string
+      members = set(string)
+      condition = optional(object({
+        title       = string
+        description = optional(string)
+        expression  = string
+      }))
+    })), null)
+  }))
+
+  default = {}
+}
